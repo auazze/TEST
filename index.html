@@ -7,7 +7,6 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Document</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>._error{border-color:#dc3545!important}</style>
     <script src="https://unpkg.com/imask"></script>
 </head>
 <body class="bg-light">
@@ -16,45 +15,50 @@
             <input type="hidden" name="action" value="message">
 
             <div class="mb-3">
-                <label class="form-label">Тема</label>
-                <select class="form-select _req" name="theme" required>
-                    <option value="" selected>Выберите...</option>
-                    <option value="Вопрос">Вопрос</option>
-                    <option value="Предложение">Предложение</option>
-                    <option value="Другое">Другое</option>
-                </select>
+                <label class="form-label" for="theme">Тема</label>
+                    <select class="form-select _req" id="theme" name="theme" required>
+                        <option value="" selected>Выберите...</option>
+                        <option value="Вопрос">Вопрос</option>
+                        <option value="Предложение">Предложение</option>
+                        <option value="Другое">Другое</option>
+                    </select>
                 <div class="invalid-feedback">Выберите тему</div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">ФИО</label>
+                <label class="form-label" for="name">ФИО</label>
                 <input class="form-control _req" name="name" maxlength="255" id="name" required>
                 <div class="invalid-feedback">Укажите ФИО</div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Телефон</label>
+                <label class="form-label" for="phone">Телефон</label>
                 <input class="form-control _req _phone" name="phone" placeholder="+7 (___) ___-__-__" id="phone" required>
                 <div class="invalid-feedback">Укажите телефон</div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">E-mail</label>
+                <label class="form-label" for="email">E-mail</label>
                 <input type="email" class="form-control _req _email" name="email" maxlength="255" id="email" required>
                 <div class="invalid-feedback">Укажите e-mail</div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Сообщение</label>
+                <label class="form-label" for="message">Сообщение</label>
                 <textarea class="form-control _req" name="message" rows="5" maxlength="4096" id="message" required></textarea>
                 <div class="invalid-feedback">Не более 4096 символов</div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label" id="captcha-question">Капча</label>
+                <label class="form-label">Капча</label>
                 <div class="input-group">
-                    <input class="form-control _req _captcha" name="captcha" maxlength="2" required>
-                    <button class="btn btn-outline-secondary" type="button" id="captcha-reload">Обновить</button>
+                    <img src="captcha.php" alt="captcha" id="captcha-image"
+                         class="border rounded-start" style="height:38px">
+                    <button class="btn btn-outline-secondary" type="button" id="captcha-reload">↻</button>
+                    <label>
+                        <input class="form-control _req _captcha" name="captcha"
+                               maxlength="4" placeholder="Код" required>
+                    </label>
                 </div>
                 <div class="invalid-feedback">Неверная капча</div>
             </div>
@@ -68,107 +72,90 @@
         </form>
     </div>
 
-        <script>
-            "use strict"
+    <script>
+        "use strict";
 
-            document.addEventListener("DOMContentLoaded", () => {
-                const form = document.getElementById("form");
-                const question = document.getElementById("captcha-question");
-                const reload = document.getElementById("captcha-reload");
+        document.addEventListener("DOMContentLoaded", () => {
+            const form   = document.getElementById("form");
+            const img    = document.getElementById("captcha-image");
+            const reload = document.getElementById("captcha-reload");
 
-                IMask(document.getElementById('phone'), {
-                    mask: '+{7} (000) 000-00-00'
-                });
+            IMask(document.getElementById("phone"), { mask: "+{7} (000) 000-00-00" });
 
-                async function loadCaptcha() {
-                    try {
-                        const res  = await fetch("sendmail.php");
-                        const data = await res.json();
-                        question.textContent = data.captcha;
-                        form.captcha.value = "";
-                    } catch(e) { console.error(e); }
+            function refreshCaptcha() {
+                img.src = "captcha.php?" + Date.now();
+                form.captcha.value = "";
+            }
+            refreshCaptcha();
+            reload.addEventListener("click", refreshCaptcha);
+
+            form.addEventListener("submit", formSend);
+
+            async function formSend(e) {
+                e.preventDefault();
+
+                const error = formValidate(form);
+                if (error !== 0) return;
+
+                try {
+                    const response = await fetch("sendmail.php", {
+                        method: "POST",
+                        body: new FormData(form)
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        alert(data.message);
+                        form.reset();
+                        refreshCaptcha();
+                    } else if (response.status === 422) {
+                        alert(data.message);
+                    } else {
+                        alert(data.message || "Ошибка сервера");
+                    }
+                } catch (err) {
+                    alert("Сеть недоступна: " + err);
                 }
-                loadCaptcha();
-                reload.addEventListener('click', loadCaptcha);
-                form.addEventListener("submit", formSend);
+            }
 
-                async function formSend(e) {
-                    e.preventDefault();
+            function formValidate(form) {
+                let error = 0;
+                const formReq = form.querySelectorAll("._req");
 
-                    const error = formValidate(form);
-                    if (error !== 0) return;
+                for (let i = 0; i < formReq.length; i++) {
+                    const input = formReq[i];
+                    formRemoveError(input);
 
-                    try {
-                        const response = await fetch("sendmail.php", {
-                            method: "POST",
-                            body: new FormData(form)
-                        });
-
-                        const data = await response.json();
-
-                        if (response.ok) {
-                            alert(data.message);
-                            form.reset();
-                        } else if (response.status === 422) {
-                            alert(data.message);
-                        } else {
-                            alert(data.message || "Ошибка сервера");
+                    if (input.classList.contains("_email")) {
+                        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)) {
+                            formAddError(input); error++;
                         }
-                    } catch (err) {
-                        alert("Сеть недоступна: " + err);
+                    } else if (input.classList.contains("_phone")) {
+                        const digits = input.value.replace(/\D/g, "");
+                        if (digits.length !== 11) {
+                            formAddError(input); error++;
+                        }
+                    } else if (input.classList.contains("_captcha")) {
+                        if (!/^[A-Z0-9]{4}$/i.test(input.value)) {
+                            formAddError(input); error++;
+                        }
+                    } else if (input.type === "checkbox" && !input.checked) {
+                        formAddError(input); error++;
+                    } else if (input.value === "") {
+                        formAddError(input); error++;
                     }
                 }
+                return error;
+            }
 
-                function formValidate(form) {
-                    let error = 0;
-                    const formReq = form.querySelectorAll("._req");
-
-                    for (let index = 0; index < formReq.length; index++) {
-                        const input = formReq[index];
-
-                        formRemoveError(input);
-
-                        if (input.classList.contains("_email")) {
-                            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)) {
-                                formAddError(input);
-                                error++;
-                            }
-                        } else if (input.classList.contains("_phone")) {
-                            const digits = input.value.replace(/\D/g, "");
-                            if (digits.length !== 11) {
-                                formAddError(input);
-                                error++;
-                            }
-                        } else if (input.classList.contains("_captcha")) {
-                            if (!/^\d{1,2}$/.test(input.value)) {
-                                formAddError(input);
-                                error++;
-                            }
-                        } else if (input.getAttribute("type") === "checkbox" && input.checked === false) {
-                            formAddError(input);
-                            error++;
-                        } else {
-                            if (input.value === "") {
-                                formAddError(input);
-                                error++;
-                            }
-                        }
-                    }
-
-                    return error;
-                }
-
-                function formAddError(input) {
-                    input.parentElement.classList.add("_error");
-                    input.classList.add("_error");
-                }
-
-                function formRemoveError(input) {
-                    input.parentElement.classList.remove("_error");
-                    input.classList.remove("_error");
-                }
-            })
-        </script>
-    </div>
+            function formAddError(input) {
+                input.classList.add("is-invalid");
+            }
+            function formRemoveError(input) {
+                input.classList.remove("is-invalid");
+            }
+        });
+    </script>
 </body>
 </html>

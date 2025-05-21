@@ -4,27 +4,8 @@ session_start();
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-use Random\RandomException;
 
 require __DIR__ . '/vendor/autoload.php';
-
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    try {
-        $a = random_int(1, 9);
-    } catch (RandomException $e) {
-
-    }
-    try {
-        $b = random_int(1, 9);
-    } catch (RandomException $e) {
-
-    }
-    $_SESSION['captcha_answer'] = (string)($a + $b);
-
-    header('Content-Type: application/json; charset=UTF-8');
-    echo json_encode(['captcha' => "$a + $b = ?"]);
-    exit;
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -47,7 +28,7 @@ if ($name === '')                              $errors['name']   = 'Укажит
 if ($phone === '')                             $errors['phone']  = 'Укажите телефон.';
 if (!filter_var($email, FILTER_VALIDATE_EMAIL))$errors['email']  = 'Некорректный e-mail';
 if ($message === '')                           $errors['message']= 'Пустое сообщение.';
-if ($captcha !== ($_SESSION['captcha_answer'] ?? ''))
+if ($captcha !== ($_SESSION['captcha_code'] ?? ''))
     $errors['captcha'] = 'Неверная капча.';
 if (!$agree)                                   $errors['agree']  = 'Нужно согласие.';
 
@@ -70,18 +51,18 @@ try {
     $mail = new PHPMailer(true);
     $mail->CharSet = 'UTF-8';
     $mail->setLanguage('ru');
-    $mail->isHTML(true);
+    $mail->isHTML();
 
     $mail->isSMTP();
     $mail->Host       = 'smtp.yandex.ru';
     $mail->SMTPAuth   = true;
-    $mail->Username   = 'no-reply@site.ru';
-    $mail->Password   = 'app-password';
+    $mail->Username   = 'log';
+    $mail->Password   = 'pass';
     $mail->Port       = 465;
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
 
-    $mail->setFrom('no-reply@site.ru', 'Feedback');
-    $mail->addAddress('admin@site.ru');
+    $mail->setFrom('from@example.com', 'Feedback');
+    $mail->addAddress('to@example.com');
     $mail->addReplyTo($email, $name);
     $mail->Subject = "Сообщение с сайта: $theme";
     $mail->Body    = $body;
